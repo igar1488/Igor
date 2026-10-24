@@ -1,12 +1,16 @@
-name: Собрать APK Elliotgram
+name: Build APK
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
+  workflow_dispatch:        # ручной запуск кнопкой Run workflow
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -16,37 +20,22 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Создать проект
+      - name: Установка зависимостей
+        run: npm install
+
+      - name: Создание Android-проекта
         run: |
-          mkdir app && cd app
-          npm init -y
-          npm i @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
-          mkdir www
-          echo '<html></html>' > www/index.html
-          echo '{"appId":"com.elliotgram.app","appName":"Elliotgram","webDir":"www","server":{"url":"http://62.171.158.129:1042","cleartext":true}}' > capacitor.config.json
           npx cap add android
           npx cap sync android
 
-      - name: Иконка (если не получится, будет стандартная)
-        continue-on-error: true
-        working-directory: app
-        run: |
-          curl -fsSL http://62.171.158.129:1042/icon-512.png -o icon.png
-          rm -rf android/app/src/main/res/mipmap-anydpi-v26
-          for pair in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
-            d=${pair%%:*}; s=${pair##*:}
-            for name in ic_launcher ic_launcher_round ic_launcher_foreground; do
-              convert icon.png -resize ${s}x${s} android/app/src/main/res/mipmap-$d/$name.png
-            done
-          done
-
-      - name: Собрать APK
-        working-directory: app/android
+      - name: Сборка APK
+        working-directory: android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - uses: actions/upload-artifact@v4
+      - name: Сохранить APK
+        uses: actions/upload-artifact@v4
         with:
-          name: Elliotgram-APK
-          path: app/android/app/build/outputs/apk/debug/app-debug.apk
+          name: Elliotgram-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
